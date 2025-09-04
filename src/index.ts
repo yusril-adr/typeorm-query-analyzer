@@ -9,6 +9,4 @@ export {
   MockWebhookSender,
 } from "./utils/WebhookSender";
 export { TReportPayload } from "./types/TReportPayload";
-
-import { QueryAnalyzerLogger } from "./interceptors/QueryAnalyzerLogger";
-import { IQueryAnalyzerConfig } from "./config/QueryAnalyzerConfig";
+export { createDataSourceWithAnalyzer } from "./utils/TypeOrmIntegration";

@@ -41,9 +41,55 @@ QUERY_ANALYZER_ENABLE_PROD=false
 
 ### 2. TypeORM Integration
 
+#### Option A: Using the Helper Function (Recommended)
+
 ```typescript
 import { DataSource } from "typeorm";
-import { QueryAnalyzerLogger } from "typeorm-query-analyzer";
+import { createDataSourceWithAnalyzer } from "typeorm-query-analyzer";
+
+const dataSourceConfig = createDataSourceWithAnalyzer({
+  type: "postgres",
+  url: process.env.DB_CONNECTION,
+  entities: [
+    /* your entities */
+  ],
+  synchronize: false,
+});
+
+const AppDataSource = new DataSource(dataSourceConfig);
+// Automatically sets maxQueryExecutionTime and logger from QUERY_ANALYZER_THRESHOLD_MS
+```
+
+Or with extended types (e.g., with TypeORM Seeding):
+
+```typescript
+import { DataSource } from "typeorm";
+import { SeederOptions } from "typeorm-extension";
+import { createDataSourceWithAnalyzer } from "typeorm-query-analyzer";
+
+const databaseConfig = createDataSourceWithAnalyzer<SeederOptions>({
+  type: "postgres",
+  url: process.env.DB_CONNECTION,
+  entities: [
+    /* your entities */
+  ],
+  seeds: [
+    /* your seeds */
+  ],
+  synchronize: false,
+});
+
+const AppDataSource = new DataSource(databaseConfig);
+```
+
+#### Option B: Manual Setup
+
+```typescript
+import { DataSource } from "typeorm";
+import {
+  QueryAnalyzerLogger,
+  getMaxQueryExecutionTime,
+} from "typeorm-query-analyzer";
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -53,6 +99,7 @@ const AppDataSource = new DataSource({
   ],
   synchronize: false,
   logging: true,
+  maxQueryExecutionTime: getMaxQueryExecutionTime(), // Uses QUERY_ANALYZER_THRESHOLD_MS
   logger: new QueryAnalyzerLogger(), // Add the query analyzer
 });
 ```

@@ -9,7 +9,7 @@ import {
   IWebhookSender,
   MockWebhookSender,
 } from "../utils/WebhookSender";
-import { randomUUID } from "crypto";
+import { v4 as uuidV4 } from "uuid";
 
 export class QueryAnalyzerLogger implements Logger {
   private readonly config: IQueryAnalyzerConfig;
@@ -34,7 +34,7 @@ export class QueryAnalyzerLogger implements Logger {
   logQuery(query: string, parameters?: any[]): void {
     if (!this.config.isEnabled()) return;
 
-    const queryId = this.generateQueryId();
+    const queryId = uuidV4();
     this.queryTimestamps.set(queryId, Date.now());
 
     console.log("Executing query:", query, parameters || []);
@@ -56,7 +56,6 @@ export class QueryAnalyzerLogger implements Logger {
 
   logQuerySlow(time: number, query: string, parameters?: any[]): void {
     console.warn(`Slow query detected: ${time} ms`, query, parameters || []);
-    console.log(this.config);
     if (!this.config.isEnabled() || time < this.config.thresholdMs) return;
 
     this.handleSlowQuery(time, query, parameters);
@@ -83,17 +82,13 @@ export class QueryAnalyzerLogger implements Logger {
     query: string,
     parameters?: any[]
   ): Promise<void> {
-    console.warn(
-      `Slow query detected (${executionTimeMs} ms):`,
-      query,
-      parameters || []
-    );
     try {
       const payload = this.createReportPayload(
         executionTimeMs,
         query,
         parameters
       );
+      console.log("Reporting slow query:", payload);
       await this.webhookSender.send(payload);
     } catch (error) {
       console.error("Failed to send query analysis report:", error);
@@ -110,14 +105,14 @@ export class QueryAnalyzerLogger implements Logger {
     const safeParameters = this.sanitizeParameters(parameters);
 
     return {
-      queryId: this.generateQueryId(),
+      queryId: uuidV4(),
       rawQuery: truncatedQuery,
       parameters: safeParameters,
       executionTimeMs,
       stackTrace,
       timestamp: new Date().toISOString(),
-      contextType: "typeorm-query",
-      environment: process.env.NODE_ENV || "unknown",
+      contextType: this.config.contextType,
+      environment: process.env.NODE_ENV ?? process.env.APP_ENV ?? "unknown",
       applicationName: this.config.applicationName,
       version: this.config.version,
     };
@@ -175,9 +170,5 @@ export class QueryAnalyzerLogger implements Logger {
     });
 
     return sanitized;
-  }
-
-  private generateQueryId(): string {
-    return randomUUID();
   }
 }
