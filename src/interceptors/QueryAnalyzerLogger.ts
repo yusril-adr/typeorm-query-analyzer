@@ -10,6 +10,7 @@ import {
   MockWebhookSender,
 } from "../utils/WebhookSender";
 import { v4 as uuidV4 } from "uuid";
+import * as path from "path";
 
 export class QueryAnalyzerLogger implements Logger {
   private readonly config: IQueryAnalyzerConfig;
@@ -123,13 +124,76 @@ export class QueryAnalyzerLogger implements Logger {
     if (!stack) return [];
 
     const lines = stack.split("\n");
-    const relevantLines = lines
-      .slice(1)
-      .filter((line) => !line.includes("QueryAnalyzerInterceptor"))
-      .filter((line) => !line.includes("node_modules/typeorm"))
-      .slice(0, this.config.maxStack);
+    const filteredLines: string[] = [];
+    let foundProcessTicks = false;
+    let startCapturing = false;
 
-    return relevantLines.map((line) => line.trim());
+    for (const line of lines.slice(1)) { // Skip the first line (Error message)
+      // Skip analyzer internal frames
+      if (line.includes("QueryAnalyzerLogger") || 
+          line.includes("QueryAnalyzerInterceptor") ||
+          line.includes("node_modules/typeorm")) {
+        continue;
+      }
+
+      // Check if we hit process.processTicksAndRejections
+      if (line.includes("process.processTicksAndRejections")) {
+        foundProcessTicks = true;
+        startCapturing = true;
+        continue;
+      }
+
+      // Start capturing after process.processTicksAndRejections
+      if (startCapturing || !foundProcessTicks) {
+        // Skip Node.js internal frames (except when they're part of the user's stack)
+        if (line.includes("node:internal/") && !startCapturing) {
+          continue;
+        }
+
+        filteredLines.push(line.trim());
+
+        // Stop if we've reached the max stack size
+        if (filteredLines.length >= this.config.maxStack) {
+          break;
+        }
+      }
+    }
+
+    return filteredLines.map((line) => this.convertToRelativePath(line));
+  }
+
+  private convertToRelativePath(stackLine: string): string {
+    // Match file paths in stack trace - looking for absolute paths with line:column
+    // Format: "at SomeFunction (/absolute/path/file.ts:123:45)"
+    const match = stackLine.match(/^(\s*at\s+[^(]*\s*\()([^:]+):(\d+):(\d+)(\))$/);
+    
+    if (!match) {
+      // Try simpler format: "at /absolute/path/file.ts:123:45"  
+      const simpleMatch = stackLine.match(/^(\s*at\s+)([^:]+):(\d+):(\d+)$/);
+      if (!simpleMatch) return stackLine;
+      
+      const [, prefix, filePath, lineNum, colNum] = simpleMatch;
+      return `${prefix}${this.getRelativePathSafe(filePath)}:${lineNum}:${colNum}`;
+    }
+    
+    const [, prefix, filePath, lineNum, colNum, suffix] = match;
+    const relativePath = this.getRelativePathSafe(filePath);
+    
+    return `${prefix}${relativePath}:${lineNum}:${colNum}${suffix}`;
+  }
+  
+  private getRelativePathSafe(filePath: string): string {
+    try {
+      const cwd = process.cwd();
+      const relativePath = path.relative(cwd, filePath);
+      
+      // If the relative path goes up directories (starts with ..), use original path
+      // Otherwise use the relative path
+      return relativePath && !relativePath.startsWith('..') ? relativePath : filePath;
+    } catch (error) {
+      // If path resolution fails, return original path
+      return filePath;
+    }
   }
 
   private truncateQuery(query: string): string {

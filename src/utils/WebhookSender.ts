@@ -61,10 +61,8 @@ export class WebhookSender implements IWebhookSender {
 export class MockWebhookSender implements IWebhookSender {
   public async send(payload: TReportPayload): Promise<void> {
     console.log("[MOCK] Query analyzer would send:", {
-      queryId: payload.queryId,
-      executionTimeMs: payload.executionTimeMs,
-      timestamp: payload.timestamp,
-      environment: payload.environment,
+      ...payload,
+      rawQuery: "[MOCK]",
     });
   }
 }
