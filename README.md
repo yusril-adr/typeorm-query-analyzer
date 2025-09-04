@@ -88,9 +88,10 @@ const AppDataSource = new DataSource(databaseConfig);
 import { DataSource } from "typeorm";
 import {
   QueryAnalyzerLogger,
-  getMaxQueryExecutionTime,
+  QueryAnalyzerConfig,
 } from "typeorm-query-analyzer";
 
+const config = new QueryAnalyzerConfig();
 const AppDataSource = new DataSource({
   type: "postgres",
   url: process.env.DB_CONNECTION,
@@ -99,43 +100,101 @@ const AppDataSource = new DataSource({
   ],
   synchronize: false,
   logging: true,
-  maxQueryExecutionTime: getMaxQueryExecutionTime(), // Uses QUERY_ANALYZER_THRESHOLD_MS
-  logger: new QueryAnalyzerLogger(), // Add the query analyzer
+  maxQueryExecutionTime: config.thresholdMs, // Uses QUERY_ANALYZER_THRESHOLD_MS
+  logger: new QueryAnalyzerLogger(config),
 });
 ```
 
 ### 3. Custom Configuration
 
+#### Using Partial Configuration Override
+
+```typescript
+import { DataSource } from "typeorm";
+import { createDataSourceWithAnalyzer } from "typeorm-query-analyzer";
+
+const databaseConfig = createDataSourceWithAnalyzer(
+  {
+    type: "postgres",
+    url: process.env.DB_CONNECTION,
+    entities: [
+      /* your entities */
+    ],
+    synchronize: false,
+  },
+  {
+    // Override specific analyzer settings
+    thresholdMs: 500, // Custom threshold (overrides env var)
+    contextType: "my-custom-context",
+    enableDev: true,
+    captureStack: false,
+  }
+);
+
+const AppDataSource = new DataSource(databaseConfig);
+```
+
+#### Manual Configuration
+
 ```typescript
 import {
+  DataSource,
   QueryAnalyzerLogger,
   QueryAnalyzerConfig,
 } from "typeorm-query-analyzer";
 
-const customConfig = new QueryAnalyzerConfig();
-const analyzer = new QueryAnalyzerLogger(customConfig);
+const customConfig = new QueryAnalyzerConfig({
+  thresholdMs: 2000,
+  apiEndpoint: "https://custom-endpoint.com/webhooks",
+  apiKey: "custom-key",
+  enableDev: true,
+  captureStack: true,
+  contextType: "my-app-production",
+});
 
 const AppDataSource = new DataSource({
-  // ... other options
-  logger: analyzer,
+  type: "postgres",
+  url: process.env.DB_CONNECTION,
+  entities: [
+    /* your entities */
+  ],
+  maxQueryExecutionTime: customConfig.thresholdMs,
+  logger: new QueryAnalyzerLogger(customConfig),
 });
 ```
 
 ## Configuration Options
 
-| Environment Variable           | Default | Description                                     |
+### Environment Variables
+
+| Variable                       | Default | Description                                     |
 | ------------------------------ | ------- | ----------------------------------------------- |
 | `QUERY_ANALYZER_THRESHOLD_MS`  | `1000`  | Query execution threshold in milliseconds       |
 | `QUERY_ANALYZER_API_ENDPOINT`  | -       | **Required** Webhook endpoint URL               |
 | `QUERY_ANALYZER_API_KEY`       | -       | **Required** API key for webhook authentication |
-| `QUERY_ANALYZER_CAPTURE_STACK` | `true`  | Enable stack trace capture                      |
+| `QUERY_ANALYZER_CAPTURE_STACK` | `false` | Enable stack trace capture                      |
 | `QUERY_ANALYZER_MAX_STACK`     | `15`    | Maximum stack trace depth                       |
 | `QUERY_ANALYZER_MAX_QUERY`     | `5000`  | Maximum query length before truncation          |
 | `QUERY_ANALYZER_TIMEOUT_MS`    | `10000` | Webhook request timeout                         |
-| `QUERY_ANALYZER_ENABLE_DEV`    | `true`  | Enable in development environment               |
+| `QUERY_ANALYZER_ENABLE_DEV`    | `false` | Enable in development environment               |
 | `QUERY_ANALYZER_ENABLE_PROD`   | `false` | Enable in production environment                |
-| `QUERY_ANALYZER_APP_NAME`      | -       | Optional application name                       |
-| `QUERY_ANALYZER_VERSION`       | -       | Optional application version                    |
+| `NODE_ENV` or `APP_ENV`        | -       | Environment detection (development/production)  |
+
+### Automatic Configuration
+
+| Property          | Source                                          | Description                          |
+| ----------------- | ----------------------------------------------- | ------------------------------------ |
+| `applicationName` | `package.json` name field                       | Auto-detected from consuming project |
+| `version`         | `package.json` version field                    | Auto-detected from consuming project |
+| `contextType`     | `${applicationName}-${databaseType}`            | Generated context identifier         |
+| `logging`         | `false` (analyzer config) / `true` (DataSource) | Separate logging controls            |
+
+### Configuration Priority
+
+1. **Partial config parameter** (highest priority)
+2. **Environment variables**
+3. **Auto-detected values** (package.json)
+4. **Default fallbacks** (lowest priority)
 
 ## Webhook Payload
 
@@ -143,49 +202,40 @@ When a slow query is detected, the following payload is sent to your webhook end
 
 ```typescript
 {
-  queryId: string;           // Unique query identifier
+  queryId: string;           // Unique query identifier (UUID)
   rawQuery: string;          // SQL query (truncated if too long)
-  parameters: Record<string, unknown>; // Query parameters
+  parameters: Record<string, unknown>; // Sanitized query parameters
   executionTimeMs: number;   // Execution time in milliseconds
-  stackTrace: string[];      // Stack trace (if enabled)
+  stackTrace: string[];      // Stack trace (if captureStack enabled)
   timestamp: string;         // ISO timestamp
-  contextType: string;       // Always "typeorm-query"
-  environment: string;       // NODE_ENV value
-  applicationName?: string;  // Optional app name
-  version?: string;          // Optional app version
+  contextType: string;       // Format: "${applicationName}-${databaseType}"
+  environment: string;       // NODE_ENV or APP_ENV value
+  applicationName?: string;  // Auto-detected from package.json
+  version?: string;          // Version from config or package.json
 }
 ```
 
-## Advanced Usage
+### Example Payload
 
-### Custom Webhook Sender
-
-```typescript
-import { IWebhookSender, TReportPayload } from "typeorm-query-analyzer";
-
-class CustomWebhookSender implements IWebhookSender {
-  async send(payload: TReportPayload): Promise<void> {
-    // Your custom implementation
-    console.log("Custom webhook:", payload);
-  }
+```json
+{
+  "queryId": "123e4567-e89b-12d3-a456-426614174000",
+  "rawQuery": "SELECT * FROM users WHERE email = $1 AND status = $2",
+  "parameters": {
+    "param_0": "user@example.com",
+    "param_1": "active"
+  },
+  "executionTimeMs": 1500,
+  "stackTrace": [
+    "at UserRepository.findByEmail (/app/src/repositories/UserRepository.ts:45:12)",
+    "at UserService.authenticate (/app/src/services/UserService.ts:23:8)"
+  ],
+  "timestamp": "2024-01-15T14:30:45.123Z",
+  "contextType": "my-api-postgres",
+  "environment": "production",
+  "applicationName": "my-api",
+  "version": "1.2.3"
 }
-
-const analyzer = new QueryAnalyzerInterceptor(
-  new QueryAnalyzerConfig(),
-  new CustomWebhookSender()
-);
-```
-
-### Mock Mode for Testing
-
-```typescript
-import { MockWebhookSender } from "typeorm-query-analyzer";
-
-// Uses console.log instead of HTTP requests
-const analyzer = new QueryAnalyzerInterceptor(
-  new QueryAnalyzerConfig(),
-  new MockWebhookSender()
-);
 ```
 
 ## Development

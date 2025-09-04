@@ -1,6 +1,6 @@
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { TReportPayload } from '../types/TReportPayload';
-import { IQueryAnalyzerConfig } from '../config/QueryAnalyzerConfig';
+import axios, { AxiosInstance, AxiosResponse } from "axios";
+import { TReportPayload } from "../types/TReportPayload";
+import { IQueryAnalyzerConfig } from "../config/QueryAnalyzerConfig";
 
 export interface IWebhookSender {
   send(payload: TReportPayload): Promise<void>;
@@ -15,10 +15,10 @@ export class WebhookSender implements IWebhookSender {
     this.httpClient = axios.create({
       timeout: config.timeoutMs,
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
-        'User-Agent': 'typeorm-query-analyzer/1.0.0'
-      }
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.apiKey}`,
+        "User-Agent": "typeorm-query-analyzer",
+      },
     });
   }
 
@@ -30,21 +30,29 @@ export class WebhookSender implements IWebhookSender {
       );
 
       if (response.status >= 400) {
-        console.error(`Query analyzer webhook failed with status ${response.status}:`, response.statusText);
+        console.error(
+          `Query analyzer webhook failed with status ${response.status}:`,
+          response.statusText
+        );
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        if (error.code === 'ECONNABORTED') {
-          console.error(`Query analyzer webhook timeout after ${this.config.timeoutMs}ms`);
+        if (error.code === "ECONNABORTED") {
+          console.error(
+            `Query analyzer webhook timeout after ${this.config.timeoutMs}ms`
+          );
         } else if (error.response) {
-          console.error(`Query analyzer webhook failed with status ${error.response.status}:`, error.response.statusText);
+          console.error(
+            `Query analyzer webhook failed with status ${error.response.status}:`,
+            error.response.statusText
+          );
         } else if (error.request) {
-          console.error('Query analyzer webhook failed - no response received');
+          console.error("Query analyzer webhook failed - no response received");
         } else {
-          console.error('Query analyzer webhook failed:', error.message);
+          console.error("Query analyzer webhook failed:", error.message);
         }
       } else {
-        console.error('Query analyzer webhook unexpected error:', error);
+        console.error("Query analyzer webhook unexpected error:", error);
       }
     }
   }
@@ -52,11 +60,11 @@ export class WebhookSender implements IWebhookSender {
 
 export class MockWebhookSender implements IWebhookSender {
   public async send(payload: TReportPayload): Promise<void> {
-    console.log('[MOCK] Query analyzer would send:', {
+    console.log("[MOCK] Query analyzer would send:", {
       queryId: payload.queryId,
       executionTimeMs: payload.executionTimeMs,
       timestamp: payload.timestamp,
-      environment: payload.environment
+      environment: payload.environment,
     });
   }
 }
