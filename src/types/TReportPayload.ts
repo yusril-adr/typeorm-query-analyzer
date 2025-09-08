@@ -9,4 +9,13 @@ export type TReportPayload = {
   environment: string;
   applicationName?: string;
   version?: string;
+  executionPlan: {
+    databaseProvider: string;
+    planFormat: {
+      contentType: string; // ex. "application/xml",
+      fileExtension: string; // ex. ".xml",
+      description: string; // ex. "XML",
+    };
+    content: any;
+  };
 };
