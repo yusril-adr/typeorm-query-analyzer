@@ -60,9 +60,6 @@ export class WebhookSender implements IWebhookSender {
 
 export class MockWebhookSender implements IWebhookSender {
   public async send(payload: TReportPayload): Promise<void> {
-    console.log("[MOCK] Query analyzer would send:", {
-      ...payload,
-      rawQuery: "[MOCK]",
-    });
+    console.log("[MOCK] Query analyzer would send:", payload);
   }
 }

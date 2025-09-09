@@ -10,6 +10,7 @@ export interface IQueryAnalyzerConfig {
   enableProd: boolean;
   contextType: string;
   logging: boolean;
+  executionPlanEnabled: boolean;
   applicationName?: string;
   version?: string;
   isEnabled(): boolean;
@@ -28,6 +29,7 @@ export class QueryAnalyzerConfig implements IQueryAnalyzerConfig {
   public readonly enableProd: boolean;
   public readonly contextType: string;
   public readonly logging: boolean;
+  public readonly executionPlanEnabled: boolean;
   public readonly applicationName?: string;
   public readonly version?: string;
 
@@ -58,6 +60,9 @@ export class QueryAnalyzerConfig implements IQueryAnalyzerConfig {
     this.enableProd =
       partialConfig?.enableProd ??
       process.env.QUERY_ANALYZER_ENABLE_PROD === "true";
+    this.executionPlanEnabled =
+      partialConfig?.executionPlanEnabled ??
+      process.env.QUERY_ANALYZER_EXECUTION_PLAN_ENABLED === "true";
     this.logging = partialConfig?.logging ?? false;
     this.applicationName = partialConfig?.applicationName;
     this.contextType = partialConfig?.contextType ?? `${this.applicationName}`;

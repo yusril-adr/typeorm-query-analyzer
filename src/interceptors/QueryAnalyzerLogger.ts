@@ -1,4 +1,4 @@
-import { Logger } from "typeorm";
+import { Logger, DataSourceOptions } from "typeorm";
 import { TReportPayload } from "../types/TReportPayload";
 import {
   QueryAnalyzerConfig,
@@ -9,26 +9,46 @@ import {
   IWebhookSender,
   MockWebhookSender,
 } from "../utils/WebhookSender";
+import {
+  ExecutionPlanService,
+  ExecutionPlanResult,
+} from "../utils/ExecutionPlanService";
 import { v4 as uuidV4 } from "uuid";
 import * as path from "path";
+
+export interface QueryAnalyzerLoggerOptions {
+  config?: IQueryAnalyzerConfig;
+  webhookSender?: IWebhookSender;
+  dataSourceOptions?: DataSourceOptions;
+}
 
 export class QueryAnalyzerLogger implements Logger {
   private readonly config: IQueryAnalyzerConfig;
   private readonly webhookSender: IWebhookSender;
   private readonly queryTimestamps: Map<string, number> = new Map();
+  private readonly executionPlanService: ExecutionPlanService | null;
 
-  constructor(config?: IQueryAnalyzerConfig, webhookSender?: IWebhookSender) {
-    this.config = config || new QueryAnalyzerConfig();
+  constructor(options: QueryAnalyzerLoggerOptions = {}) {
+    this.config = options.config || new QueryAnalyzerConfig();
 
     try {
       this.config.validate();
-      this.webhookSender = webhookSender || new WebhookSender(this.config);
+      this.webhookSender =
+        options.webhookSender || new WebhookSender(this.config);
     } catch (error) {
       console.warn(
         "Query analyzer validation failed, using mock sender:",
         error
       );
       this.webhookSender = new MockWebhookSender();
+    }
+
+    if (options.dataSourceOptions && this.config.executionPlanEnabled) {
+      this.executionPlanService = new ExecutionPlanService(
+        options.dataSourceOptions
+      );
+    } else {
+      this.executionPlanService = null;
     }
   }
 
@@ -84,26 +104,53 @@ export class QueryAnalyzerLogger implements Logger {
     parameters?: any[]
   ): Promise<void> {
     try {
-      const payload = this.createReportPayload(
+      const payload = await this.createReportPayload(
         executionTimeMs,
         query,
         parameters
       );
-      console.log("Reporting slow query:", payload);
+      console.log("Reporting slow query:", {
+        queryId: payload.queryId,
+        rawQuery: payload.rawQuery,
+        parameters: payload.parameters,
+        executionTimeMs: payload.executionTimeMs,
+      });
       await this.webhookSender.send(payload);
     } catch (error) {
       console.error("Failed to send query analysis report:", error);
     }
   }
 
-  private createReportPayload(
+  private async createReportPayload(
     executionTimeMs: number,
     query: string,
     parameters?: any[]
-  ): TReportPayload {
+  ): Promise<TReportPayload> {
     const stackTrace = this.config.captureStack ? this.captureStackTrace() : [];
     const truncatedQuery = this.truncateQuery(query);
     const safeParameters = this.sanitizeParameters(parameters);
+
+    let executionPlan: ExecutionPlanResult | null = null;
+    if (this.executionPlanService) {
+      try {
+        executionPlan = await this.executionPlanService.captureExecutionPlan(
+          query,
+          parameters
+        );
+      } catch (error) {
+        console.warn("Failed to capture execution plan:", error);
+      }
+    }
+
+    const defaultExecutionPlan = {
+      databaseProvider: "unknown",
+      planFormat: {
+        contentType: "text/plain",
+        fileExtension: ".txt",
+        description: "TEXT",
+      },
+      content: "",
+    };
 
     return {
       queryId: uuidV4(),
@@ -116,6 +163,7 @@ export class QueryAnalyzerLogger implements Logger {
       environment: process.env.NODE_ENV ?? process.env.APP_ENV ?? "unknown",
       applicationName: this.config.applicationName,
       version: this.config.version,
+      executionPlan: executionPlan || defaultExecutionPlan,
     };
   }
 
@@ -128,11 +176,14 @@ export class QueryAnalyzerLogger implements Logger {
     let foundProcessTicks = false;
     let startCapturing = false;
 
-    for (const line of lines.slice(1)) { // Skip the first line (Error message)
+    for (const line of lines.slice(1)) {
+      // Skip the first line (Error message)
       // Skip analyzer internal frames
-      if (line.includes("QueryAnalyzerLogger") || 
-          line.includes("QueryAnalyzerInterceptor") ||
-          line.includes("node_modules/typeorm")) {
+      if (
+        line.includes("QueryAnalyzerLogger") ||
+        line.includes("QueryAnalyzerInterceptor") ||
+        line.includes("node_modules/typeorm")
+      ) {
         continue;
       }
 
@@ -165,31 +216,37 @@ export class QueryAnalyzerLogger implements Logger {
   private convertToRelativePath(stackLine: string): string {
     // Match file paths in stack trace - looking for absolute paths with line:column
     // Format: "at SomeFunction (/absolute/path/file.ts:123:45)"
-    const match = stackLine.match(/^(\s*at\s+[^(]*\s*\()([^:]+):(\d+):(\d+)(\))$/);
-    
+    const match = stackLine.match(
+      /^(\s*at\s+[^(]*\s*\()([^:]+):(\d+):(\d+)(\))$/
+    );
+
     if (!match) {
-      // Try simpler format: "at /absolute/path/file.ts:123:45"  
+      // Try simpler format: "at /absolute/path/file.ts:123:45"
       const simpleMatch = stackLine.match(/^(\s*at\s+)([^:]+):(\d+):(\d+)$/);
       if (!simpleMatch) return stackLine;
-      
+
       const [, prefix, filePath, lineNum, colNum] = simpleMatch;
-      return `${prefix}${this.getRelativePathSafe(filePath)}:${lineNum}:${colNum}`;
+      return `${prefix}${this.getRelativePathSafe(
+        filePath
+      )}:${lineNum}:${colNum}`;
     }
-    
+
     const [, prefix, filePath, lineNum, colNum, suffix] = match;
     const relativePath = this.getRelativePathSafe(filePath);
-    
+
     return `${prefix}${relativePath}:${lineNum}:${colNum}${suffix}`;
   }
-  
+
   private getRelativePathSafe(filePath: string): string {
     try {
       const cwd = process.cwd();
       const relativePath = path.relative(cwd, filePath);
-      
+
       // If the relative path goes up directories (starts with ..), use original path
       // Otherwise use the relative path
-      return relativePath && !relativePath.startsWith('..') ? relativePath : filePath;
+      return relativePath && !relativePath.startsWith("..")
+        ? relativePath
+        : filePath;
     } catch (error) {
       // If path resolution fails, return original path
       return filePath;

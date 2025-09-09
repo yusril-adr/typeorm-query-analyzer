@@ -16,6 +16,6 @@ export type TReportPayload = {
       fileExtension: string; // ex. ".xml",
       description: string; // ex. "XML",
     };
-    content: any;
+    content: string;
   };
 };

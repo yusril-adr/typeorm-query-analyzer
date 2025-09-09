@@ -27,7 +27,10 @@ export function createDataSourceWithAnalyzer<T extends object = {}>(
     version: analyzerConfig?.version ?? packageJson.version ?? "unknown",
   };
   const config = new QueryAnalyzerConfig(configWithType);
-  const logger = new QueryAnalyzerLogger(config);
+  const logger = new QueryAnalyzerLogger({ 
+    config, 
+    dataSourceOptions 
+  });
 
   return {
     ...dataSourceOptions,

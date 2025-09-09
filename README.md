@@ -10,6 +10,7 @@ A TypeORM interceptor that monitors query performance and sends webhook notifica
 - 🔍 **Stack Trace Capture**: Optional stack trace collection for debugging
 - 🌍 **Environment Aware**: Different settings for development and production
 - 📝 **Comprehensive Logging**: Detailed query information in reports
+- 📈 **Execution Plan Capture**: Automatic EXPLAIN query execution for SQL databases
 
 ## Installation
 
@@ -37,6 +38,9 @@ QUERY_ANALYZER_MAX_QUERY=5000
 QUERY_ANALYZER_TIMEOUT_MS=10000
 QUERY_ANALYZER_ENABLE_DEV=true
 QUERY_ANALYZER_ENABLE_PROD=false
+
+# Execution Plan Capture (Optional)
+QUERY_ANALYZER_EXECUTION_PLAN_ENABLED=true
 ```
 
 ### 2. TypeORM Integration
@@ -175,10 +179,11 @@ const AppDataSource = new DataSource({
 | `QUERY_ANALYZER_CAPTURE_STACK` | `false` | Enable stack trace capture                      |
 | `QUERY_ANALYZER_MAX_STACK`     | `15`    | Maximum stack trace depth                       |
 | `QUERY_ANALYZER_MAX_QUERY`     | `5000`  | Maximum query length before truncation          |
-| `QUERY_ANALYZER_TIMEOUT_MS`    | `10000` | Webhook request timeout                         |
-| `QUERY_ANALYZER_ENABLE_DEV`    | `false` | Enable in development environment               |
-| `QUERY_ANALYZER_ENABLE_PROD`   | `false` | Enable in production environment                |
-| `NODE_ENV` or `APP_ENV`        | -       | Environment detection (development/production)  |
+| `QUERY_ANALYZER_TIMEOUT_MS`               | `10000` | Webhook request timeout                         |
+| `QUERY_ANALYZER_ENABLE_DEV`               | `false` | Enable in development environment               |
+| `QUERY_ANALYZER_ENABLE_PROD`              | `false` | Enable in production environment                |
+| `QUERY_ANALYZER_EXECUTION_PLAN_ENABLED`   | `false` | Enable execution plan capture for SQL databases |
+| `NODE_ENV` or `APP_ENV`                   | -       | Environment detection (development/production)  |
 
 ### Automatic Configuration
 
@@ -212,6 +217,15 @@ When a slow query is detected, the following payload is sent to your webhook end
   environment: string;       // NODE_ENV or APP_ENV value
   applicationName?: string;  // Auto-detected from package.json
   version?: string;          // Version from config or package.json
+  executionPlan: {           // Query execution plan (if enabled)
+    databaseProvider: string;  // Database type (mysql, postgres, etc.)
+    planFormat: {
+      contentType: string;     // MIME type (application/json, application/xml, text/plain)
+      fileExtension: string;   // File extension (.json, .xml, .txt)
+      description: string;     // Format description (JSON, XML, TEXT)
+    };
+    content: string;           // Raw execution plan data as string
+  };
 }
 ```
 
@@ -234,9 +248,59 @@ When a slow query is detected, the following payload is sent to your webhook end
   "contextType": "my-api-postgres",
   "environment": "production",
   "applicationName": "my-api",
-  "version": "1.2.3"
+  "version": "1.2.3",
+  "executionPlan": {
+    "databaseProvider": "postgres",
+    "planFormat": {
+      "contentType": "application/json",
+      "fileExtension": ".json",
+      "description": "JSON"
+    },
+    "content": "[\n  {\n    \"Plan\": {\n      \"Node Type\": \"Seq Scan\",\n      \"Relation Name\": \"users\",\n      \"Startup Cost\": 0.00,\n      \"Total Cost\": 25.50,\n      \"Plan Rows\": 1,\n      \"Plan Width\": 244\n    }\n  }\n]"
+  }
 }
 ```
+
+## Execution Plan Capture
+
+### Supported Databases
+
+The execution plan capture feature works with SQL databases and automatically adapts the format based on the database type:
+
+| Database | EXPLAIN Command | Output Format | Content Type |
+|----------|----------------|---------------|--------------|
+| **MySQL** | `EXPLAIN FORMAT=JSON` | JSON | `application/json` |
+| **MariaDB** | `EXPLAIN FORMAT=JSON` | JSON | `application/json` |
+| **PostgreSQL** | `EXPLAIN (FORMAT JSON)` | JSON | `application/json` |
+| **SQLite** | `EXPLAIN QUERY PLAN` | Text | `text/plain` |
+| **SQL Server** | `SET SHOWPLAN_XML ON` | XML | `application/xml` |
+| **Oracle** | `EXPLAIN PLAN FOR` | Text | `text/plain` |
+
+### NoSQL Databases
+
+Execution plan capture is automatically **disabled** for NoSQL databases (MongoDB, etc.) as they don't support SQL EXPLAIN queries.
+
+### Configuration
+
+Enable execution plan capture by setting the environment variable:
+
+```env
+QUERY_ANALYZER_EXECUTION_PLAN_ENABLED=true
+```
+
+When enabled:
+- A separate database connection is created for EXPLAIN queries
+- EXPLAIN queries are executed using the same parameters as the original query
+- Execution plans are captured **before** sending webhook notifications
+- If EXPLAIN fails, the webhook is still sent without the execution plan
+- The feature gracefully falls back for unsupported database types
+
+### Performance Considerations
+
+- Execution plan capture uses a dedicated connection pool (minimal overhead)
+- EXPLAIN queries typically execute quickly but add slight latency
+- The feature only activates for slow queries that exceed the threshold
+- Failed EXPLAIN queries don't prevent webhook delivery
 
 ## Development
 
