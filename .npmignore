@@ -1,0 +1,112 @@
+# Source files (since dist/ contains compiled output)
+src/
+*.ts
+!*.d.ts
+
+# Development files
+tsconfig.json
+tsconfig.tsbuildinfo
+.tsbuildinfo
+
+# Testing
+test/
+tests/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+__tests__/
+coverage/
+.nyc_output/
+
+# Development dependencies
+node_modules/
+
+# Documentation (keep README.md for npm)
+docs/
+*.md
+!README.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build tools
+.grunt/
+bower_components/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Claude Code specific
+.claude/
+.mcp.json
+
+# Yarn
+.yarn-integrity
+yarn.lock
+
+# npm
+package-lock.json
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# ESLint
+.eslintcache
+
+# Prettier
+.prettierignore
+
+# TypeScript
+*.tsbuildinfo
+
+# Examples and demos
+examples/
+demo/
+samples/
+
+#claude
+.mcp.json
+.claude/*
