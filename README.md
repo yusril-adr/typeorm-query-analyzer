@@ -32,6 +32,7 @@ DB_CONNECTION=postgres://user:pass@localhost:5432/myapp
 QUERY_ANALYZER_THRESHOLD_MS=1000
 QUERY_ANALYZER_API_ENDPOINT=https://monitoring.mycompany.com/api/slow-queries
 QUERY_ANALYZER_API_KEY=sk-1234567890abcdef
+QUERY_ANALYZER_PROJECT_ID=my-project-id
 QUERY_ANALYZER_CAPTURE_STACK=true
 QUERY_ANALYZER_MAX_STACK=15
 QUERY_ANALYZER_MAX_QUERY=5000
@@ -176,6 +177,7 @@ const AppDataSource = new DataSource({
 | `QUERY_ANALYZER_THRESHOLD_MS`  | `1000`  | Query execution threshold in milliseconds       |
 | `QUERY_ANALYZER_API_ENDPOINT`  | -       | **Required** Webhook endpoint URL               |
 | `QUERY_ANALYZER_API_KEY`       | -       | **Required** API key for webhook authentication |
+| `QUERY_ANALYZER_PROJECT_ID`    | -       | **Required** Project identifier for analytics   |
 | `QUERY_ANALYZER_CAPTURE_STACK` | `false` | Enable stack trace capture                      |
 | `QUERY_ANALYZER_MAX_STACK`     | `15`    | Maximum stack trace depth                       |
 | `QUERY_ANALYZER_MAX_QUERY`     | `5000`  | Maximum query length before truncation          |
@@ -215,6 +217,7 @@ When a slow query is detected, the following payload is sent to your webhook end
   timestamp: string;         // ISO timestamp
   contextType: string;       // Format: "${applicationName}-${databaseType}"
   environment: string;       // NODE_ENV or APP_ENV value
+  projectId: string;         // Project identifier from QUERY_ANALYZER_PROJECT_ID
   applicationName?: string;  // Auto-detected from package.json
   version?: string;          // Version from config or package.json
   executionPlan: {           // Query execution plan (if enabled)
@@ -247,6 +250,7 @@ When a slow query is detected, the following payload is sent to your webhook end
   "timestamp": "2024-01-15T14:30:45.123Z",
   "contextType": "my-api-postgres",
   "environment": "production",
+  "projectId": "my-project-id",
   "applicationName": "my-api",
   "version": "1.2.3",
   "executionPlan": {

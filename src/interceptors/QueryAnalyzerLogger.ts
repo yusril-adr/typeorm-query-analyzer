@@ -161,6 +161,7 @@ export class QueryAnalyzerLogger implements Logger {
       timestamp: new Date().toISOString(),
       contextType: this.config.contextType,
       environment: process.env.NODE_ENV ?? process.env.APP_ENV ?? "unknown",
+      projectId: this.config.projectId,
       applicationName: this.config.applicationName,
       version: this.config.version,
       executionPlan: executionPlan || defaultExecutionPlan,
