@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from "axios";
+import PQueue from "p-queue";
 import { TReportPayload } from "../types/TReportPayload";
 import { IQueryAnalyzerConfig } from "../config/QueryAnalyzerConfig";
 
@@ -58,8 +59,89 @@ export class WebhookSender implements IWebhookSender {
   }
 }
 
-export class MockWebhookSender implements IWebhookSender {
+export class QueuedWebhookSender implements IWebhookSender {
+  private readonly webhookSender: WebhookSender;
+  private readonly queue: PQueue;
+
+  constructor(config: IQueryAnalyzerConfig) {
+    this.webhookSender = new WebhookSender(config);
+
+    const queueOptions: any = {
+      concurrency: config.queueConcurrency,
+    };
+
+    if (config.queueIntervalCap > 0) {
+      queueOptions.intervalCap = config.queueIntervalCap;
+      queueOptions.interval = config.queueIntervalInMs;
+    }
+
+    this.queue = new PQueue(queueOptions);
+
+    this.queue.on("active", () => {
+      if (config.logging) {
+        console.log(`[Queue] Processing webhook. Queue size: ${this.queue.size}, Pending: ${this.queue.pending}`);
+      }
+    });
+
+    this.queue.on("error", (error) => {
+      console.error("[Queue] Webhook queue error:", error);
+    });
+  }
+
   public async send(payload: TReportPayload): Promise<void> {
-    console.log("[MOCK] Query analyzer would send:", payload);
+    try {
+      await this.queue.add(async () => {
+        await this.webhookSender.send(payload);
+      });
+    } catch (error) {
+      console.error("[Queue] Failed to queue webhook:", error);
+      try {
+        await this.webhookSender.send(payload);
+      } catch (fallbackError) {
+        console.error("[Queue] Fallback webhook send also failed:", fallbackError);
+      }
+    }
+  }
+}
+
+export class MockWebhookSender implements IWebhookSender {
+  private readonly queue: PQueue;
+
+  constructor(config: IQueryAnalyzerConfig) {
+    const queueOptions: any = {
+      concurrency: config.queueConcurrency,
+    };
+
+    if (config.queueIntervalCap > 0) {
+      queueOptions.intervalCap = config.queueIntervalCap;
+      queueOptions.interval = config.queueIntervalInMs;
+    }
+
+    this.queue = new PQueue(queueOptions);
+
+    this.queue.on("active", () => {
+      console.log(`[MOCK Queue] Processing webhook. Queue size: ${this.queue.size}, Pending: ${this.queue.pending}`);
+    });
+
+    this.queue.on("error", (error) => {
+      console.error("[MOCK Queue] Webhook queue error:", error);
+    });
+
+    console.log("[MOCK] Webhook sender initialized with queue config:", {
+      concurrency: config.queueConcurrency,
+      intervalCap: config.queueIntervalCap,
+      intervalInMs: config.queueIntervalInMs
+    });
+  }
+
+  public async send(payload: TReportPayload): Promise<void> {
+    try {
+      await this.queue.add(async () => {
+        console.log("[MOCK] Query analyzer would send:", payload);
+      });
+    } catch (error) {
+      console.error("[MOCK Queue] Failed to queue webhook:", error);
+      console.log("[MOCK] Fallback - Query analyzer would send:", payload);
+    }
   }
 }

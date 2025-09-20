@@ -185,6 +185,9 @@ const AppDataSource = new DataSource({
 | `QUERY_ANALYZER_ENABLE_DEV`               | `false` | Enable in development environment               |
 | `QUERY_ANALYZER_ENABLE_PROD`              | `false` | Enable in production environment                |
 | `QUERY_ANALYZER_EXECUTION_PLAN_ENABLED`   | `false` | Enable execution plan capture for SQL databases |
+| `QUERY_ANALYZER_QUEUE_CONCURRENCY`        | `3`     | Maximum simultaneous webhook requests           |
+| `QUERY_ANALYZER_QUEUE_INTERVAL_CAP`       | `1`     | Max requests per interval (1 = rate limited)    |
+| `QUERY_ANALYZER_QUEUE_INTERVAL_IN_MS`     | `1000`  | Rate limiting interval in milliseconds          |
 | `NODE_ENV` or `APP_ENV`                   | -       | Environment detection (development/production)  |
 
 ### Automatic Configuration
@@ -202,6 +205,46 @@ const AppDataSource = new DataSource({
 2. **Environment variables**
 3. **Auto-detected values** (package.json)
 4. **Default fallbacks** (lowest priority)
+
+## Webhook Queuing and Rate Limiting
+
+The analyzer uses an intelligent queuing system to ensure reliable webhook delivery without overwhelming your monitoring endpoints.
+
+### Key Features
+- **Non-blocking**: Webhook delivery doesn't block query execution
+- **Concurrency control**: Limits simultaneous requests to prevent resource exhaustion
+- **Rate limiting**: Respects API rate limits to prevent being blocked
+- **Graceful fallback**: Falls back to direct sending if queue fails
+
+### Configuration
+
+#### **CONCURRENCY vs RATE LIMITING**
+
+- **`QUERY_ANALYZER_QUEUE_CONCURRENCY`**: Maximum **simultaneous** webhook requests
+  - **Purpose**: Prevents overwhelming your system resources (CPU, memory, connections)
+  - **Example**: `3` means maximum 3 webhook HTTP requests happening at the same time
+
+- **`QUERY_ANALYZER_QUEUE_INTERVAL_CAP`**: Maximum requests that can **start** within a time window
+  - **Purpose**: Respects external API rate limits
+  - **Example**: `10` with `QUERY_ANALYZER_QUEUE_INTERVAL_IN_MS=1000` means maximum 10 webhooks per second
+
+#### **Common Configurations**
+
+```env
+# Basic setup (rate limited to 1 request per second)
+QUERY_ANALYZER_QUEUE_CONCURRENCY=3
+QUERY_ANALYZER_QUEUE_INTERVAL_CAP=1      # 1 request per second
+
+# With rate limiting (e.g., API allows 50 requests/minute)
+QUERY_ANALYZER_QUEUE_CONCURRENCY=2
+QUERY_ANALYZER_QUEUE_INTERVAL_CAP=50
+QUERY_ANALYZER_QUEUE_INTERVAL_IN_MS=60000
+
+# High-volume setup (API allows 100 requests/second)
+QUERY_ANALYZER_QUEUE_CONCURRENCY=5
+QUERY_ANALYZER_QUEUE_INTERVAL_CAP=100
+QUERY_ANALYZER_QUEUE_INTERVAL_IN_MS=1000
+```
 
 ## Webhook Payload
 

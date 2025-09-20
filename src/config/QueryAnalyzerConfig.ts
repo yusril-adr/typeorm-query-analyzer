@@ -12,6 +12,9 @@ export interface IQueryAnalyzerConfig {
   logging: boolean;
   executionPlanEnabled: boolean;
   projectId: string;
+  queueConcurrency: number;
+  queueIntervalCap: number;
+  queueIntervalInMs: number;
   applicationName?: string;
   version?: string;
   isEnabled(): boolean;
@@ -32,6 +35,9 @@ export class QueryAnalyzerConfig implements IQueryAnalyzerConfig {
   public readonly logging: boolean;
   public readonly executionPlanEnabled: boolean;
   public readonly projectId: string;
+  public readonly queueConcurrency: number;
+  public readonly queueIntervalCap: number;
+  public readonly queueIntervalInMs: number;
   public readonly applicationName?: string;
   public readonly version?: string;
 
@@ -67,6 +73,15 @@ export class QueryAnalyzerConfig implements IQueryAnalyzerConfig {
       process.env.QUERY_ANALYZER_EXECUTION_PLAN_ENABLED === "true";
     this.projectId =
       partialConfig?.projectId ?? (process.env.QUERY_ANALYZER_PROJECT_ID || "");
+    this.queueConcurrency =
+      partialConfig?.queueConcurrency ??
+      parseInt(process.env.QUERY_ANALYZER_QUEUE_CONCURRENCY || "3", 10);
+    this.queueIntervalCap =
+      partialConfig?.queueIntervalCap ??
+      parseInt(process.env.QUERY_ANALYZER_QUEUE_INTERVAL_CAP || "1", 10);
+    this.queueIntervalInMs =
+      partialConfig?.queueIntervalInMs ??
+      parseInt(process.env.QUERY_ANALYZER_QUEUE_INTERVAL_IN_MS || "1000", 10);
     this.logging = partialConfig?.logging ?? false;
     this.applicationName = partialConfig?.applicationName;
     this.contextType = partialConfig?.contextType ?? `${this.applicationName}`;

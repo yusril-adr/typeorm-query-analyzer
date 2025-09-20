@@ -1,6 +1,6 @@
 {
   "name": "typeorm-query-analyzer",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "axios": "^1.11.0",
+    "p-queue": "^8.1.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

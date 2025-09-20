@@ -5,7 +5,7 @@ import {
   IQueryAnalyzerConfig,
 } from "../config/QueryAnalyzerConfig";
 import {
-  WebhookSender,
+  QueuedWebhookSender,
   IWebhookSender,
   MockWebhookSender,
 } from "../utils/WebhookSender";
@@ -34,13 +34,13 @@ export class QueryAnalyzerLogger implements Logger {
     try {
       this.config.validate();
       this.webhookSender =
-        options.webhookSender || new WebhookSender(this.config);
+        options.webhookSender || new QueuedWebhookSender(this.config);
     } catch (error) {
       console.warn(
         "Query analyzer validation failed, using mock sender:",
         error
       );
-      this.webhookSender = new MockWebhookSender();
+      this.webhookSender = new MockWebhookSender(this.config);
     }
 
     if (options.dataSourceOptions && this.config.executionPlanEnabled) {
