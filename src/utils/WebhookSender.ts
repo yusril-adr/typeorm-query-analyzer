@@ -19,6 +19,7 @@ export class WebhookSender implements IWebhookSender {
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.apiKey}`,
         "User-Agent": "typeorm-query-analyzer",
+        "X-Project-Id": config.projectId,
       },
     });
   }
@@ -106,8 +107,10 @@ export class QueuedWebhookSender implements IWebhookSender {
 
 export class MockWebhookSender implements IWebhookSender {
   private readonly queue: PQueue;
+  private readonly config: IQueryAnalyzerConfig;
 
   constructor(config: IQueryAnalyzerConfig) {
+    this.config = config;
     const queueOptions: any = {
       concurrency: config.queueConcurrency,
     };
@@ -138,10 +141,12 @@ export class MockWebhookSender implements IWebhookSender {
     try {
       await this.queue.add(async () => {
         console.log("[MOCK] Query analyzer would send:", payload);
+        console.log("[MOCK] With X-Project-Id header:", this.config.projectId);
       });
     } catch (error) {
       console.error("[MOCK Queue] Failed to queue webhook:", error);
       console.log("[MOCK] Fallback - Query analyzer would send:", payload);
+      console.log("[MOCK] Fallback - With X-Project-Id header:", this.config.projectId);
     }
   }
 }

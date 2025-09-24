@@ -260,7 +260,6 @@ When a slow query is detected, the following payload is sent to your webhook end
   timestamp: string;         // ISO timestamp
   contextType: string;       // Format: "${applicationName}-${databaseType}"
   environment: string;       // NODE_ENV or APP_ENV value
-  projectId: string;         // Project identifier from QUERY_ANALYZER_PROJECT_ID
   applicationName?: string;  // Auto-detected from package.json
   version?: string;          // Version from config or package.json
   executionPlan: {           // Query execution plan (if enabled)
@@ -274,6 +273,17 @@ When a slow query is detected, the following payload is sent to your webhook end
   };
 }
 ```
+
+### Request Headers
+
+All webhook requests include the following headers:
+
+| Header | Description | Source |
+|--------|-------------|--------|
+| `Content-Type` | `application/json` | Automatic |
+| `Authorization` | `Bearer ${QUERY_ANALYZER_API_KEY}` | Environment variable |
+| `User-Agent` | `typeorm-query-analyzer` | Automatic |
+| `X-Project-Id` | Project identifier | `QUERY_ANALYZER_PROJECT_ID` environment variable |
 
 ### Example Payload
 
@@ -293,7 +303,6 @@ When a slow query is detected, the following payload is sent to your webhook end
   "timestamp": "2024-01-15T14:30:45.123Z",
   "contextType": "my-api-postgres",
   "environment": "production",
-  "projectId": "my-project-id",
   "applicationName": "my-api",
   "version": "1.2.3",
   "executionPlan": {

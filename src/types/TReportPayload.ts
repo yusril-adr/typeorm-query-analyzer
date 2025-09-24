@@ -7,7 +7,6 @@ export type TReportPayload = {
   timestamp: string;
   contextType: string;
   environment: string;
-  projectId: string;
   applicationName?: string;
   version?: string;
   executionPlan: {
