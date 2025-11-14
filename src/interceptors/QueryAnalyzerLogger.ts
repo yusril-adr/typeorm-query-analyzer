@@ -76,9 +76,9 @@ export class QueryAnalyzerLogger implements Logger {
   }
 
   logQuerySlow(time: number, query: string, parameters?: any[]): void {
-    console.warn(`Slow query detected: ${time} ms`, query, parameters || []);
     if (!this.config.isEnabled() || time < this.config.thresholdMs) return;
 
+    console.warn(`Slow query detected: ${time} ms`, query, parameters || []);
     this.handleSlowQuery(time, query, parameters);
   }
 

@@ -6,7 +6,6 @@ import {
   QueryAnalyzerConfig,
   IQueryAnalyzerConfig,
 } from "../config/QueryAnalyzerConfig";
-import { version } from "os";
 
 export function createDataSourceWithAnalyzer<T extends object = {}>(
   dataSourceOptions?: DataSourceOptions & T,
@@ -27,9 +26,9 @@ export function createDataSourceWithAnalyzer<T extends object = {}>(
     version: analyzerConfig?.version ?? packageJson.version ?? "unknown",
   };
   const config = new QueryAnalyzerConfig(configWithType);
-  const logger = new QueryAnalyzerLogger({ 
-    config, 
-    dataSourceOptions 
+  const logger = new QueryAnalyzerLogger({
+    config,
+    dataSourceOptions,
   });
 
   return {

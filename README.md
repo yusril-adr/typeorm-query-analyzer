@@ -8,7 +8,6 @@ A TypeORM interceptor that monitors query performance and sends webhook notifica
 - 📊 **Configurable Thresholds**: Set custom performance thresholds via environment variables
 - 🔗 **Webhook Integration**: Send alerts to external monitoring systems
 - 🔍 **Stack Trace Capture**: Optional stack trace collection for debugging
-- 🌍 **Environment Aware**: Different settings for development and production
 - 📝 **Comprehensive Logging**: Detailed query information in reports
 - 📈 **Execution Plan Capture**: Automatic EXPLAIN query execution for SQL databases
 
@@ -37,8 +36,7 @@ QUERY_ANALYZER_CAPTURE_STACK=true
 QUERY_ANALYZER_MAX_STACK=15
 QUERY_ANALYZER_MAX_QUERY=5000
 QUERY_ANALYZER_TIMEOUT_MS=10000
-QUERY_ANALYZER_ENABLE_DEV=true
-QUERY_ANALYZER_ENABLE_PROD=false
+QUERY_ANALYZER_ENABLE=true
 
 # Execution Plan Capture (Optional)
 QUERY_ANALYZER_EXECUTION_PLAN_ENABLED=true
@@ -131,7 +129,7 @@ const databaseConfig = createDataSourceWithAnalyzer(
     // Override specific analyzer settings
     thresholdMs: 500, // Custom threshold (overrides env var)
     contextType: "my-custom-context",
-    enableDev: true,
+    enabled: true,
     captureStack: false,
   }
 );
@@ -152,7 +150,7 @@ const customConfig = new QueryAnalyzerConfig({
   thresholdMs: 2000,
   apiEndpoint: "https://custom-endpoint.com/webhooks",
   apiKey: "custom-key",
-  enableDev: true,
+  enabled: true,
   captureStack: true,
   contextType: "my-app-production",
 });
@@ -182,8 +180,7 @@ const AppDataSource = new DataSource({
 | `QUERY_ANALYZER_MAX_STACK`     | `15`    | Maximum stack trace depth                       |
 | `QUERY_ANALYZER_MAX_QUERY`     | `5000`  | Maximum query length before truncation          |
 | `QUERY_ANALYZER_TIMEOUT_MS`               | `10000` | Webhook request timeout                         |
-| `QUERY_ANALYZER_ENABLE_DEV`               | `false` | Enable in development environment               |
-| `QUERY_ANALYZER_ENABLE_PROD`              | `false` | Enable in production environment                |
+| `QUERY_ANALYZER_ENABLE`                   | `false` | Enable the query analyzer                       |
 | `QUERY_ANALYZER_EXECUTION_PLAN_ENABLED`   | `false` | Enable execution plan capture for SQL databases |
 | `QUERY_ANALYZER_QUEUE_CONCURRENCY`        | `3`     | Maximum simultaneous webhook requests           |
 | `QUERY_ANALYZER_QUEUE_INTERVAL_CAP`       | `1`     | Max requests per interval (1 = rate limited)    |

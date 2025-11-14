@@ -6,8 +6,7 @@ export interface IQueryAnalyzerConfig {
   maxStack: number;
   maxQuery: number;
   timeoutMs: number;
-  enableDev: boolean;
-  enableProd: boolean;
+  enabled: boolean;
   contextType: string;
   logging: boolean;
   executionPlanEnabled: boolean;
@@ -29,8 +28,7 @@ export class QueryAnalyzerConfig implements IQueryAnalyzerConfig {
   public readonly maxStack: number;
   public readonly maxQuery: number;
   public readonly timeoutMs: number;
-  public readonly enableDev: boolean;
-  public readonly enableProd: boolean;
+  public readonly enabled: boolean;
   public readonly contextType: string;
   public readonly logging: boolean;
   public readonly executionPlanEnabled: boolean;
@@ -62,12 +60,9 @@ export class QueryAnalyzerConfig implements IQueryAnalyzerConfig {
     this.timeoutMs =
       partialConfig?.timeoutMs ??
       parseInt(process.env.QUERY_ANALYZER_TIMEOUT_MS || "10000", 10);
-    this.enableDev =
-      partialConfig?.enableDev ??
-      process.env.QUERY_ANALYZER_ENABLE_DEV === "true";
-    this.enableProd =
-      partialConfig?.enableProd ??
-      process.env.QUERY_ANALYZER_ENABLE_PROD === "true";
+    this.enabled =
+      partialConfig?.enabled ??
+      process.env.QUERY_ANALYZER_ENABLE === "true";
     this.executionPlanEnabled =
       partialConfig?.executionPlanEnabled ??
       process.env.QUERY_ANALYZER_EXECUTION_PLAN_ENABLED === "true";
@@ -89,17 +84,14 @@ export class QueryAnalyzerConfig implements IQueryAnalyzerConfig {
   }
 
   public isEnabled(): boolean {
-    const isDevelopment = process.env.NODE_ENV === "development";
-    const isProduction = process.env.NODE_ENV === "production";
-
-    if (isDevelopment && this.enableDev) return true;
-    if (isProduction && this.enableProd) return true;
-    if (!isDevelopment && !isProduction && this.enableDev) return true;
-
-    return false;
+    return this.enabled;
   }
 
   public validate(): void {
+    if (!this.enabled) {
+      return;
+    }
+
     if (!this.apiEndpoint) {
       throw new Error("QUERY_ANALYZER_API_ENDPOINT is required");
     }
